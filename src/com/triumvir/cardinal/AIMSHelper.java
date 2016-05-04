@@ -117,7 +117,7 @@ public class AIMSHelper
 		return prop.getProperty(key);
 	}
 
-	public void deleteAccount(AccountRequest rqst, String queryToExecute) throws GeneralException, SQLException, IOException
+	public void deleteAccount(AccountRequest rqst) throws GeneralException, SQLException, IOException
 	{
 		String id = rqst.getNativeIdentity();
 
@@ -128,9 +128,39 @@ public class AIMSHelper
 
 		log.debug("Processing the following account request: " + rqst.toXml());
 
-		PreparedStatement preparedStatement = connection.prepareStatement(getProperty(queryToExecute));
+		PreparedStatement preparedStatement = connection.prepareStatement(getProperty("MSCAIMS-11.deleteAccount"));
 		preparedStatement.setString(1, id);
 		preparedStatement.executeUpdate();
+	}
+
+	public void updateAccount(AccountRequest rqst, List<String> updateAttr) throws GeneralException, SQLException
+	{
+		if(Util.isAnyNullOrEmpty(rqst.getNativeIdentity()))
+		{
+			throw new GeneralException("Native identity was null for the account request" + rqst.toXml());
+		}
+		PreparedStatement statement = connection.prepareStatement(getProperty("MSCAIMS-11.updateAccount"));
+
+		//TODO colocar los parametros adecuados para actualizar la cuenta
+
+		statement.setString(1, updateAttr.get(0));
+		statement.setString(2, updateAttr.get(1));
+		statement.setString(3, updateAttr.get(2));
+		statement.setString(4, updateAttr.get(3));
+		statement.setString(5, updateAttr.get(4));
+		statement.setString(6, updateAttr.get(5));
+		statement.setString(7, updateAttr.get(6));
+		statement.setString(8, updateAttr.get(7));
+		statement.setString(9, updateAttr.get(8));
+		statement.setString(10, updateAttr.get(9));
+		statement.setString(11, updateAttr.get(10));
+		statement.setString(12, updateAttr.get(1));
+		statement.setString(13, updateAttr.get(12));
+		statement.setString(14, updateAttr.get(13));
+		statement.setString(15, updateAttr.get(14));
+
+		statement.executeQuery();
+
 	}
 
 	private String getStringAttribute(AccountRequest acctRqst, String attrName)
