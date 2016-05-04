@@ -116,7 +116,7 @@ public class AIMSHelper
 
 		return prop.getProperty(key);
 	}
-	
+
 	public void deleteAccount(AccountRequest rqst, String queryToExecute) throws GeneralException, SQLException, IOException
 	{
 		String id = rqst.getNativeIdentity();
@@ -128,7 +128,7 @@ public class AIMSHelper
 
 		log.debug("Processing the following account request: " + rqst.toXml());
 
-		PreparedStatement preparedStatement = connection.prepareStatement(getProperty("queryToExecute"));
+		PreparedStatement preparedStatement = connection.prepareStatement(getProperty(queryToExecute));
 		preparedStatement.setString(1, id);
 		preparedStatement.executeUpdate();
 	}
