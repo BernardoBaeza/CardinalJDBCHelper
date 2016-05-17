@@ -77,50 +77,44 @@ public class AIMSHelper
 		}
 	}
 
-	public void createAccount(AccountRequest rqst) throws GeneralException, SQLException
-	{
-		String studentId = rqst.getNativeIdentity();
-		if ( Util.isNullOrEmpty(studentId) ) {
-			throw new GeneralException("native identity was null for account request: " + rqst.toXml());
+	public void createAccount(String queryKey,List<Object> params) throws SQLException, GeneralException 
+	{	
+		//should I receive the account request?
+		
+		PreparedStatement statement = connection.prepareStatement(getProperty(queryKey));
+		ParameterMetaData parameterData = statement.getParameterMetaData(); 
+		int parametersCount = parameterData.getParameterCount(); 
+		
+		if(parametersCount!= params.size())
+		{
+			System.err.println("params err msg");
 		}
-
-//		String orgId = getStringAttribute(rqst, "");
-//		String lastName = getStringAttribute(rqst, ATT_STUDENT_LAST_NAME);
-//		String firstName = getStringAttribute(rqst, ATT_STUDENT_FIRST_NAME);
-//		String midInitial = getStringAttribute(rqst, ATT_STUDENT_MIDDLE_INITIAL);
-//		String password = getStringAttribute(rqst, ATT_STUDENT_PASSWORD);
-//		String emailId = getStringAttribute(rqst, ATT_STUDENT_EMAIL_ID);
-//		Boolean isActive = getBooleanAttribute(rqst, ATT_STUDENT_IS_ACTIVE_FLAG);
-//		String subOrg0 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_0);
-//		String subOrg1 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_1);
-//		String subOrg2 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_2);
-//		String subOrg3 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_3);
-//		String subOrg4 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_4);
-//		String subOrg5 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_5);
-//		String subOrg6 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_6);
-//		String subOrg8 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_8);
-//		String subOrg9 = getStringAttribute(rqst, ATT_STUDENT_SUB_ORG_9);
-//
-//		PreparedStatement statement = connection.prepareStatement(getProperty("MSCAIMS-11.insertAccount"));
-//		statement.setString(1, orgId);
-//		statement.setString(2, studentId);
-//		statement.setString(3, lastName);
-//		statement.setString(4, firstName);
-//		statement.setString(5, midInitial);
-//		statement.setString(6, password);
-//		statement.setString(7, emailId);
-//		statement.setBoolean(8, isActive);
-//		statement.setString(9, subOrg0);
-//		statement.setString(10, subOrg1);
-//		statement.setString(11, subOrg2);
-//		statement.setString(12, subOrg3);
-//		statement.setString(13, subOrg4);
-//		statement.setString(14, subOrg5);
-//		statement.setString(15, subOrg6);
-//		statement.setString(16, subOrg8);
-//		statement.setString(17, subOrg9);
-//
-//		statement.executeUpdate();
+		else
+		{
+			for (int i = 0; i < parametersCount; i++) 
+			{
+				Object parameter = params.get(i);
+				if(parameter instanceof String)
+				{
+					statement.setString(i, parameter.toString());
+				}
+				else if(parameter instanceof Integer)
+				{
+					statement.setInt(i, Integer.parseInt(parameter.toString()));
+				}
+				else if(parameter instanceof java.sql.Timestamp)
+				{
+					Timestamp timeParam = (Timestamp) parameter;
+					statement.setTimestamp(i, timeParam);
+				}
+				else
+				{
+					throw new GeneralException("generic msg for unespected type");
+				}				
+			}
+			statement.executeUpdate();
+			
+		}		
 	}
 
 	public void deleteAccount(/*AccountRequest rqst,*/ String id) throws GeneralException, SQLException, IOException
