@@ -1,11 +1,12 @@
 package com.triumvir.cardinal;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 
@@ -25,15 +26,30 @@ public class AIMSHelper
 	InputStream input = null;
 
 	public AIMSHelper(Connection conn) {
-		this.connection = conn;
+		this.connection = conectar();
 	}
+
+	 public Connection conectar()
+	    {
+	        try
+	        {
+	            //"jdbc:mysql://localhost:3306/pagos?user=root&password=root&zeroDateTimeBehavior=convertToNull";
+	            Class.forName("com.mysql.jdbc.Driver");
+	            Connection conexion = DriverManager.getConnection("jdbc:mysql://localhost:3306/dbo", "root", "123456");
+	            return conexion;
+	        }// fin de try
+	        catch (SQLException | ClassNotFoundException exception)
+	        {
+	            log.error("Error: " + exception.getMessage());
+	            return null;
+	        }// fin de catch
+	    }
 
 	private void loadPropertiesFile()
 	{
 		try
 		{
-			input = new FileInputStream("querys.properties");
-
+			input = this.getClass().getResourceAsStream("querys.properties");
 			// load a properties file
 			prop.load(input);
 
@@ -107,6 +123,20 @@ public class AIMSHelper
 //		statement.executeUpdate();
 	}
 
+	public void deleteAccount(/*AccountRequest rqst,*/ String id) throws GeneralException, SQLException, IOException
+	{
+		//String id = rqst.getNativeIdentity();
+
+		if(Util.isAnyNullOrEmpty(id))
+		{
+		//	throw new GeneralException("Native identity was null for the account request: " + rqst.toXml());
+		}
+
+		//log.debug("Processing the following account request: " + rqst.toXml());
+		PreparedStatement preparedStatement = connection.prepareStatement(getProperty("MSCAIMS-11.deleteAccount"));
+		preparedStatement.setString(1, id);
+		preparedStatement.executeUpdate();
+	}
 
 	private String getProperty(String key) {
 		if(input==null)
@@ -117,50 +147,62 @@ public class AIMSHelper
 		return prop.getProperty(key);
 	}
 
-	public void deleteAccount(AccountRequest rqst) throws GeneralException, SQLException, IOException
+	public void updateAccount(List<AccountRequest> accountRequestList) throws GeneralException, SQLException
 	{
-		String id = rqst.getNativeIdentity();
-
-		if(Util.isAnyNullOrEmpty(id))
+		for(AccountRequest accountRequest : accountRequestList)
 		{
-			throw new GeneralException("Native identity was null for the account request: " + rqst.toXml());
+			List <AttributeRequest> attributeList = accountRequest.getAttributeRequests();
+
+			if(Util.isAnyNullOrEmpty(accountRequest.getNativeIdentity()))
+			{
+				throw new GeneralException("Native identity was null for the account request" + accountRequest.toXml());
+			}
+
+			PreparedStatement statement = connection.prepareStatement(buildDynamicUpdateQuery(attributeList));
+
+			for(int index = 0; index < attributeList.size(); index ++)
+			{
+				//TODO Add more parameters
+				if(attributeList.get(index).getValue().getClass().toString().equals("class java.lang.String"))
+				{
+					statement.setString(index + 1, (String) attributeList.get(index).getValue());
+				}
+
+				if(attributeList.get(index).getValue().getClass().toString().equals("class java.lang.Integer"))
+				{
+					statement.setInt(index + 1, (int) attributeList.get(index).getValue());
+				}
+
+			}
+
+			statement.setString(attributeList.size() + 1, accountRequest.getNativeIdentity());
+			statement.executeUpdate();
 		}
-
-		log.debug("Processing the following account request: " + rqst.toXml());
-
-		PreparedStatement preparedStatement = connection.prepareStatement(getProperty("MSCAIMS-11.deleteAccount"));
-		preparedStatement.setString(1, id);
-		preparedStatement.executeUpdate();
 	}
 
-	public void updateAccount(AccountRequest rqst, List<String> updateAttr) throws GeneralException, SQLException
+	private String buildDynamicUpdateQuery(List<AttributeRequest> attributeRequest)
 	{
-		if(Util.isAnyNullOrEmpty(rqst.getNativeIdentity()))
+		//TODO strings query blocks come from .properties
+		StringBuilder stringBuilder = new StringBuilder(getProperty("MSCAIMS-11.updatedUpdatedSt"));
+		Iterator<AttributeRequest> iterator = attributeRequest.iterator();
+
+		while (iterator.hasNext())
 		{
-			throw new GeneralException("Native identity was null for the account request" + rqst.toXml());
+			switch(iterator.next().getName())
+			{
+				//TODO Add more parameter to match from the Provisioning to the DataBase.
+				case "LAN_Id":
+					stringBuilder.append(" ");
+					stringBuilder.append(getProperty("MSCAIMS-11.updateLAN_Id"));
+					break;
+				case "USR_Name":
+					stringBuilder.append(getProperty("MSCAIMS-11.updateUSR_Name"));
+					break;
+			}
 		}
-		PreparedStatement statement = connection.prepareStatement(getProperty("MSCAIMS-11.updateAccount"));
-
-		//TODO colocar los parametros adecuados para actualizar la cuenta
-
-		statement.setString(1, updateAttr.get(0));
-		statement.setString(2, updateAttr.get(1));
-		statement.setString(3, updateAttr.get(2));
-		statement.setString(4, updateAttr.get(3));
-		statement.setString(5, updateAttr.get(4));
-		statement.setString(6, updateAttr.get(5));
-		statement.setString(7, updateAttr.get(6));
-		statement.setString(8, updateAttr.get(7));
-		statement.setString(9, updateAttr.get(8));
-		statement.setString(10, updateAttr.get(9));
-		statement.setString(11, updateAttr.get(10));
-		statement.setString(12, updateAttr.get(1));
-		statement.setString(13, updateAttr.get(12));
-		statement.setString(14, updateAttr.get(13));
-		statement.setString(15, updateAttr.get(14));
-
-		statement.executeQuery();
-
+		stringBuilder.append(" ");
+		stringBuilder.append(getProperty("MSCAIMS-11.updatedWhereSt"));
+		return stringBuilder.toString();
 	}
 
 	private String getStringAttribute(AccountRequest acctRqst, String attrName)
@@ -192,6 +234,7 @@ public class AIMSHelper
 		log.debug("getBooleanAttribute: " + attrName);
 		Boolean value = false;
 		AttributeRequest attrRqst = acctRqst.getAttributeRequest(attrName);
+
 		if ( attrRqst != null )
 		{
 			if ( attrRqst.getValue() != null )
@@ -211,11 +254,9 @@ public class AIMSHelper
 		return value;
 	}
 
-	public static void main(String[] args)
+	public static void main(String[] args) throws GeneralException, SQLException, IOException
 	{
-		AIMSHelper helper = new AIMSHelper(null);
 
-		helper.pruebaDeProperties();
 	}
 
 	public void pruebaDeProperties()
