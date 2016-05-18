@@ -3,9 +3,10 @@ package com.triumvir.cardinal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -23,38 +24,21 @@ public class AIMSHelper
 	private static Log log = LogFactory.getLog(AIMSHelper.class);
 	private Connection connection = null;
 	Properties prop = new Properties();
-	InputStream input = null;
+	
 
 	public AIMSHelper(Connection conn) {
-		this.connection = conectar();
+		this.connection = conn;
 	}
-
-	 public Connection conectar()
-	    {
-	        try
-	        {
-	            //"jdbc:mysql://localhost:3306/pagos?user=root&password=root&zeroDateTimeBehavior=convertToNull";
-	            Class.forName("com.mysql.jdbc.Driver");
-	            Connection conexion = DriverManager.getConnection("jdbc:mysql://localhost:3306/dbo", "root", "123456");
-	            return conexion;
-	        }// fin de try
-	        catch (SQLException | ClassNotFoundException exception)
-	        {
-	            log.error("Error: " + exception.getMessage());
-	            return null;
-	        }// fin de catch
-	    }
+	
 
 	private void loadPropertiesFile()
 	{
+		InputStream input = null;
 		try
 		{
 			input = this.getClass().getResourceAsStream("querys.properties");
 			// load a properties file
 			prop.load(input);
-
-			// get the property value and print it out
-			System.out.println(prop.getProperty("MSCAIMS-11.insertAccount"));
 
 		}
 		catch (IOException ex)
@@ -72,6 +56,7 @@ public class AIMSHelper
 				catch (IOException e)
 				{
 					e.printStackTrace();
+					//mandar a log
 				}
 			}
 		}
@@ -87,6 +72,7 @@ public class AIMSHelper
 		
 		if(parametersCount!= params.size())
 		{
+			//mandar a log
 			System.err.println("params err msg");
 		}
 		else
@@ -100,7 +86,7 @@ public class AIMSHelper
 				}
 				else if(parameter instanceof Integer)
 				{
-					statement.setInt(i, Integer.parseInt(parameter.toString()));
+					statement.setInt(i, (Integer) parameter);
 				}
 				else if(parameter instanceof java.sql.Timestamp)
 				{
@@ -117,7 +103,7 @@ public class AIMSHelper
 		}		
 	}
 
-	public void deleteAccount(/*AccountRequest rqst,*/ String id) throws GeneralException, SQLException, IOException
+	public void deleteAccount(String queryKey,/*AccountRequest rqst,*/ String id) throws GeneralException, SQLException, IOException
 	{
 		//String id = rqst.getNativeIdentity();
 
@@ -127,13 +113,13 @@ public class AIMSHelper
 		}
 
 		//log.debug("Processing the following account request: " + rqst.toXml());
-		PreparedStatement preparedStatement = connection.prepareStatement(getProperty("MSCAIMS-11.deleteAccount"));
+		PreparedStatement preparedStatement = connection.prepareStatement(getProperty(queryKey));
 		preparedStatement.setString(1, id);
 		preparedStatement.executeUpdate();
 	}
 
 	private String getProperty(String key) {
-		if(input==null)
+		if(prop.isEmpty())
 		{
 			loadPropertiesFile();
 		}
@@ -157,12 +143,12 @@ public class AIMSHelper
 			for(int index = 0; index < attributeList.size(); index ++)
 			{
 				//TODO Add more parameters
-				if(attributeList.get(index).getValue().getClass().toString().equals("class java.lang.String"))
+				if(attributeList.get(index).getValue() instanceof String)
 				{
 					statement.setString(index + 1, (String) attributeList.get(index).getValue());
 				}
 
-				if(attributeList.get(index).getValue().getClass().toString().equals("class java.lang.Integer"))
+				if(attributeList.get(index).getValue() instanceof Integer)
 				{
 					statement.setInt(index + 1, (int) attributeList.get(index).getValue());
 				}
@@ -206,7 +192,7 @@ public class AIMSHelper
 		AttributeRequest attrRqst = acctRqst.getAttributeRequest(attrName);
 		if ( attrRqst != null )
 		{
-			if ( attrRqst.getValue() != null )
+			if ( attrRqst.getValue() != null && !"null".equals(Util.otoa(attrRqst.getValue())))
 			{
 				value = Util.otoa(attrRqst.getValue());
 			}
@@ -248,13 +234,5 @@ public class AIMSHelper
 		return value;
 	}
 
-	public static void main(String[] args) throws GeneralException, SQLException, IOException
-	{
 
-	}
-
-	public void pruebaDeProperties()
-	{
-		System.out.println(getProperty("MSCAIMS-11.insertAccount"));
-	}
 }
