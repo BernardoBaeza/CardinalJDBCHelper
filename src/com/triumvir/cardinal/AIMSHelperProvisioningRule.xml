@@ -1,0 +1,80 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1463086072535" id="8a81811b54a582240154a6b9c2d700a4" language="beanshell" modified="1463671818410" name="AIMSHelperProvisioning" type="JDBCProvision">
+  <Description>tThis rule is used by the JDBC connector to do provisioning of the data .</Description>
+  <Signature returnType="ProvisioningResult">
+    <Inputs>
+      <Argument name="log">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+      <Argument name="application">
+        <Description>
+                The application whose data file is being processed.
+                </Description>
+      </Argument>
+      <Argument name="schema">
+        <Description>
+                The Schema currently in use.
+                </Description>
+      </Argument>
+      <Argument name="connection">
+        <Description>
+                A connection object to connect to database.
+                </Description>
+      </Argument>
+      <Argument name="plan">
+        <Description>
+                The ProvisioningPlan created against the JDBC application.
+                </Description>
+      </Argument>
+    </Inputs>
+    <Returns>
+      <Argument name="result">
+        <Description>
+                A Provisioning Result object is desirable to return the status.IT can be a new object or part of  Provisioning Plan
+                </Description>
+      </Argument>
+    </Returns>
+  </Signature>
+  <Source>
+import java.util.List;
+import sailpoint.object.ProvisioningPlan.AccountRequest;
+import sailpoint.object.ProvisioningPlan.AttributeRequest;
+import com.triumvir.cardinal.AIMSHelper;
+
+  List accountRequestList = plan.getAccountRequests();
+  String operation = " ";
+
+  for(AccountRequest accountRequest : accountRequestList)
+  {
+      operation = accountRequest.getOperation().toString();
+
+      if (operation.isEmpty())
+      {
+        throw new RuntimeException("Provisioning operation was null for the accountRequest " + accountRequest.toXml());
+      }
+
+      if ("Create".equals(operation))
+      {
+        //TODO Call createMethod
+      }
+
+      else if("Modify".equals(operation))
+      {
+        AIMSHelper aimsHelper = new AIMSHelper(connection);
+        aimsHelper.updateAccount(accountRequestList);
+      }
+      else if ("Delete".equals(operation))
+      {
+        //TODO Call deleteMethod
+      }
+  }
+</Source>
+</Rule>
