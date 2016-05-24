@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Iterator;
 import java.util.List;
@@ -16,7 +15,6 @@ import org.apache.commons.logging.LogFactory;
 
 import sailpoint.object.ProvisioningPlan.AccountRequest;
 import sailpoint.object.ProvisioningPlan.AttributeRequest;
-import sailpoint.tools.GeneralException;
 import sailpoint.tools.Util;
 
 public class AIMSHelper
@@ -24,6 +22,7 @@ public class AIMSHelper
 	private static Log log = LogFactory.getLog(AIMSHelper.class);
 	private Connection connection = null;
 	Properties prop = new Properties();
+	private final String PROPERTIES_LOCATION = "querys.properties";
 	
 
 	public AIMSHelper(Connection conn) {
@@ -36,14 +35,13 @@ public class AIMSHelper
 		InputStream input = null;
 		try
 		{
-			input = this.getClass().getResourceAsStream("querys.properties");
-			// load a properties file
+			input = this.getClass().getResourceAsStream(PROPERTIES_LOCATION);
 			prop.load(input);
 
 		}
 		catch (IOException ex)
 		{
-			ex.printStackTrace();
+			log.error("Could not load the properties file located in:"+PROPERTIES_LOCATION, ex);
 		}
 		finally
 		{
@@ -55,16 +53,14 @@ public class AIMSHelper
 				}
 				catch (IOException e)
 				{
-					e.printStackTrace();
-					//mandar a log
+					log.error("Could not load the properties file located in:"+PROPERTIES_LOCATION, e);
 				}
 			}
 		}
 	}
 
-	public void createAccount(String queryKey,List<Object> params) throws SQLException, GeneralException 
+	public void createAccount(String queryKey,List<Object> params) throws Exception 
 	{	
-		//should I receive the account request?
 		
 		PreparedStatement statement = connection.prepareStatement(getProperty(queryKey));
 		ParameterMetaData parameterData = statement.getParameterMetaData(); 
@@ -72,8 +68,7 @@ public class AIMSHelper
 		
 		if(parametersCount!= params.size())
 		{
-			//mandar a log
-			System.err.println("params err msg");
+			log.error("Parameter count missmatch, the statement is: "+statement.toString());
 		}
 		else
 		{
@@ -82,28 +77,32 @@ public class AIMSHelper
 				Object parameter = params.get(i);
 				if(parameter instanceof String)
 				{
-					statement.setString(i, parameter.toString());
+					statement.setString(i+1, parameter.toString());
 				}
 				else if(parameter instanceof Integer)
 				{
-					statement.setInt(i, (Integer) parameter);
+					statement.setInt(i+1, (Integer) parameter);
 				}
 				else if(parameter instanceof java.sql.Timestamp)
 				{
 					Timestamp timeParam = (Timestamp) parameter;
-					statement.setTimestamp(i, timeParam);
+					statement.setTimestamp(i+1, timeParam);
+				}
+				else if(parameter instanceof Boolean)
+				{
+					statement.setBoolean(i+1, (Boolean) parameter);
 				}
 				else
 				{
-					throw new GeneralException("generic msg for unespected type");
+					throw new Exception("Unexpected attribute type :"+parameter.toString()+ " class "+parameter.getClass().getName());
 				}				
 			}
 			statement.executeUpdate();
-			
+			System.out.println("added");
 		}		
 	}
 
-	public void deleteAccount(String queryKey,/*AccountRequest rqst,*/ String id) throws GeneralException, SQLException, IOException
+	public void deleteAccount(String queryKey,/*AccountRequest rqst,*/ String id) throws Exception
 	{
 		//String id = rqst.getNativeIdentity();
 
@@ -118,16 +117,23 @@ public class AIMSHelper
 		preparedStatement.executeUpdate();
 	}
 
-	private String getProperty(String key) {
+	private String getProperty(String key) throws Exception {
 		if(prop.isEmpty())
 		{
 			loadPropertiesFile();
 		}
 
-		return prop.getProperty(key);
+		String value = prop.getProperty(key);
+		boolean valueIsNull = value == null;
+		if(valueIsNull)
+		{
+			throw new Exception("Value not found under the key: " + key);
+		}
+		
+		return value;
 	}
 
-	public void updateAccount(List<AccountRequest> accountRequestList) throws GeneralException, SQLException
+	public void updateAccount(List<AccountRequest> accountRequestList) throws Exception
 	{
 		for(AccountRequest accountRequest : accountRequestList)
 		{
@@ -135,7 +141,7 @@ public class AIMSHelper
 
 			if(Util.isAnyNullOrEmpty(accountRequest.getNativeIdentity()))
 			{
-				throw new GeneralException("Native identity was null for the account request" + accountRequest.toXml());
+				throw new Exception("Native identity was null for the account request" + accountRequest.toXml());
 			}
 
 			PreparedStatement statement = connection.prepareStatement(buildDynamicUpdateQuery(attributeList));
@@ -150,17 +156,15 @@ public class AIMSHelper
 
 				if(attributeList.get(index).getValue() instanceof Integer)
 				{
-					statement.setInt(index + 1, (int) attributeList.get(index).getValue());
+					statement.setInt(index + 1, (Integer) attributeList.get(index).getValue());
 				}
-
 			}
-
 			statement.setString(attributeList.size() + 1, accountRequest.getNativeIdentity());
 			statement.executeUpdate();
 		}
 	}
 
-	private String buildDynamicUpdateQuery(List<AttributeRequest> attributeRequest)
+	private String buildDynamicUpdateQuery(List<AttributeRequest> attributeRequest) throws Exception
 	{
 		//TODO strings query blocks come from .properties
 		StringBuilder stringBuilder = new StringBuilder(getProperty("MSCAIMS-11.updatedUpdatedSt"));
